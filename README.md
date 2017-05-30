@@ -45,5 +45,7 @@ Testing
 * test generation & browsing: http://localhost:8890/gen_dumps
 
 
-
+Improvements
+------------
+Maybe the gen_dump request should return the list of dataset files, then an download iterator can be build.
 
