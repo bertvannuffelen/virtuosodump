@@ -55,7 +55,7 @@ RETURN 1 ;
 CREATE PROCEDURE DB.DBA.counttrip (IN srcgraph VARCHAR) 
 {
    RETURN ( SPARQL SELECT COUNT(*) WHERE { GRAPH `iri(?:srcgraph)` { ?s ?p ?o}} );
-}
+};
 
 
 -- dump one graph in a series of files
@@ -115,6 +115,7 @@ CREATE PROCEDURE DB.DBA.dump_one_graph
                 file_len := 0;
                 file_idx := file_idx + 1;
                 file_name := sprintf ('%s_%02d.ttl', out_file, file_idx);
+        	log_message(sprintf('dumping file %s', file_name)) ;
                 string_to_file ( file_name, 
                                  sprintf ( '# Dump of graph <%s>, as of %s (part %d) (size %s) \n@base <> .\n', 
                                            srcgraph, 
