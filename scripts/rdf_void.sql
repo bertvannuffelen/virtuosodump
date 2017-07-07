@@ -43,6 +43,10 @@ create table DB.DBA.RDF_VOID_GRAPH_MEMBER (
 alter index RDF_VOID_GRAPH_MEMBER on DB.DBA.RDF_VOID_GRAPH_MEMBER partition (RVGM_GROUP_IID int (0hexffff00))
 ;
 
+create table DB.DBA.RDF_VOID_GRAPH_ENDPOINT(
+  RVGE_IRI varchar not null primary key,
+  RVGE_ENDPOINT_IRI varchar null
+);
 
 create procedure RDF_VOID_INIT ()
 {
@@ -69,10 +73,22 @@ create procedure RDF_VOID_SPLIT_IRI (in rel varchar, out pref varchar, out name 
 }
 ;
 
-create procedure RDF_VOID_STORE (in graph varchar, in to_graph_name varchar := null, in src varchar := null)
+create procedure RDF_VOID_STORE (in graph varchar, in to_graph_name varchar := null, in sparqlendpoint varchar:= null, in src varchar := null)
 {
   declare ses any;
   declare host varchar;
+
+  if (sparqlendpoint is null) {
+    host := null;
+    if (is_http_ctx ())
+      host := http_request_header(http_request_header (), 'Host', null, null);
+    if (host is null)
+      host := virtuoso_ini_item_value ('URIQA','DefaultHost');
+    sparqlendpoint := concat('http://', host, '/sparql');
+  };
+
+  
+  insert replacing DB.DBA.RDF_VOID_GRAPH_ENDPOINT( RVGE_IRI, RVGE_ENDPOINT_IRI) values (graph, sparqlendpoint);
 
   if (src is null)
     ses := RDF_VOID_GEN (graph);
@@ -83,7 +99,7 @@ create procedure RDF_VOID_STORE (in graph varchar, in to_graph_name varchar := n
       host := virtuoso_ini_item_value ('URIQA','DefaultHost');
       to_graph_name := 'http://' || host || '/stats/void#';
     }
-  exec (sprintf ('sparql delete from <%s> { ?s1 ?p1 ?s2 } from <%s> where { <%s#Dataset> void:statItem ?s1 . ?s1 ?p1 ?s2 }',
+  exec (sprintf ('sparql delete from <%s> { ?s1 ?p1 ?s2 } from <%s> where { <%s/void> void:statItem ?s1 . ?s1 ?p1 ?s2 }',
 	to_graph_name, to_graph_name, graph));
   TTLP (ses, graph, to_graph_name, 185);
   return;
@@ -285,14 +301,14 @@ create procedure RDF_VOID_GEN_1 (in graph varchar, in gr_name varchar := null,
   --pl_debug+
   declare _cnt, _cnt_subj, _cnt_obj, _n_classes, _n_entities, _n_properties, has_links int;
   declare preds, dict any;
-  declare pref, name, pred, host varchar;
+  declare endpoint, voidgraph, pref, name, pred, host varchar;
   declare nam, inx any;
 
-  host := null;
-  if (is_http_ctx ())
-    host := http_request_header(http_request_header (), 'Host', null, null);
-  if (host is null)
-    host := virtuoso_ini_item_value ('URIQA','DefaultHost');
+--  host := null;
+--  if (is_http_ctx ())
+--    host := http_request_header(http_request_header (), 'Host', null, null);
+--  if (host is null)
+--    host := virtuoso_ini_item_value ('URIQA','DefaultHost');
 
   -- check if this is a small or large graph.
   if (RDF_VOID_CHECK_GRAPH (graph) < 1)
@@ -306,12 +322,19 @@ create procedure RDF_VOID_GEN_1 (in graph varchar, in gr_name varchar := null,
 
   http (sprintf ('\n'), ses);
 
-  http (sprintf ('%s:Dataset a void:Dataset ; \n', ns_pref), ses);
+  voidgraph := concat(graph , '/void');
+
+  for select RVGE_ENDPOINT_IRI from RDF_VOID_GRAPH_ENDPOINT where RVGE_IRI like graph || '%' do 
+  {
+	endpoint := RVGE_ENDPOINT_IRI;
+  }
+
+  http (sprintf ('<%s> a void:Dataset ; \n', voidgraph), ses);
   http (sprintf (' rdfs:seeAlso <%s> ; \n', graph), ses);
   if (gr_name is not null)
     http (sprintf (' rdfs:label "%s" ; \n', gr_name), ses);
   if (ep)
-    http (sprintf (' void:sparqlEndpoint <http://%s/sparql> ; \n', host), ses);
+    http (sprintf (' void:sparqlEndpoint <%s> ; \n', endpoint), ses);
 
   http (sprintf (' void:triples %ld ; \n', _cnt), ses);
   http (sprintf (' void:classes %ld ; \n', _n_classes), ses);
