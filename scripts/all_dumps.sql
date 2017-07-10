@@ -1,8 +1,10 @@
 -- using sparql to get all graphs
+-- The triple <graph> void:datadumpPattern "name" allows to configure the name for each graph
+
 CREATE PROCEDURE DB.DBA.dumps_all_graphs () 
 {
 declare N int;
-declare dataset varchar ;
+declare dataset, dump_dir varchar ;
 
 N:=1;
 
@@ -10,7 +12,19 @@ for ( select graph_iri from ( sparql select distinct ?graph_iri where {graph ?gr
 {
     log_message(sprintf('Possible graph to dump %s', graph_iri)) ;
     IF ( strcontains(graph_iri, 'dataset') ) {
-        dataset := sprintf('/data/dumps/dataset%i', N); 
+	-- set default value
+	-- dump directory
+        dump_dir := '/data/dumps/' ;
+        dataset := sprintf(concat(dump_dir, 'dataset%i'), N); 
+	for (select graph_iri_name, dataset_name from ( sparql select ?graph_iri_name ?dataset_name where {?graph_iri_name void:datadumpPattern ?dataset_name .  } ) as sub2 ) do 
+	{
+            log_message(graph_iri_name);
+	    IF ( graph_iri = graph_iri_name ) {
+	    -- overwrite with user defined value 
+	       dataset := concat(dump_dir,dataset_name);
+               log_message(dataset_name);
+	    }
+	}
         log_message(dataset);
         N := N +1;
         dump_one_graph(graph_iri, dataset);
