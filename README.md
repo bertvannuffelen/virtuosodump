@@ -49,3 +49,14 @@ Improvements
 ------------
 Maybe the gen_dump request should return the list of dataset files, then an download iterator can be build.
 
+
+
+# VOiD
+Virtuoso supports the creation of VOiD descriptions for a graph. However the implementation assumes that all information for the meta data is deriveable from the Virtuoso configuration.
+This is in general not the case. The script here is copied from the Virtuoso OpensSource guthub. 
+
+Changes
+-------
+* bug fix: recalling will erase the existing meta data before inserting new ones
+* extension: allowing to specify the SPARQL endpoint url 
+* change: instead to create the VOiD dataset names as namespace(graph) + "#Dataset", it is now graph/void  
